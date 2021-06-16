@@ -16,36 +16,75 @@ namespace WindowsFormsApp2
 {
     public partial class Form1 : Form
     {
-        private bool m_toHide = false;
-        private string m_licensePath;
+        private string m_licenseKey;
+        private int m_tipTickCount = 0;
 
-        //System.Timers.Timer m_timer = new System.Timers.Timer();
+        private List<Control> m_loginControls = new List<Control>();
+        private List<Control> m_licenseControls = new List<Control>();
 
         public Form1()
         {
             InitializeComponent();
+            InitControlLists();
+            RefreshWindow();
 
-            UnityService.WinHandle = this.Handle;
-            this.CenterToScreen();
-            //UnityService.Instance.RigisterHideEvent(this.HideWindow);
+            this.textBox1.Text = "pengyue.li@unity3d.com"; //"lpy12270@163.com";
+            this.textBox2.Text = "Lpyunity123"; //"Lpy1314159";
+            this.textBox3.Text = "SC-MADP-CFPC-JXD5-TMDR-EEJR";
 
-            //System.Timers.Timer t = new System.Timers.Timer(100);
-            //t.Elapsed += new System.Timers.ElapsedEventHandler(this.TickToHide);//到达时间的时候执行事件；
-            //t.AutoReset = true;//设置是执行一次（false）还是一直执行(true)；
-            //t.Enabled = true;//是否执行System.Timers.Timer.Elapsed事件；
+            Console.WriteLine("Form1 show ?  ....");
+
         }
 
-        //void HideWindow()
-        //{
-        //    m_toHide = true;
-        //    Console.WriteLine("how many times does this called...");
-        //}
+        void InitControlLists()
+        {
+            if(m_loginControls.Count <= 0)
+            {
+                m_loginControls.Add(this.label1);
+                m_loginControls.Add(this.label2);
+                m_loginControls.Add(this.label5);
+                m_loginControls.Add(this.textBox1);
+                m_loginControls.Add(this.textBox2);
+                m_loginControls.Add(this.button1);
+            }
+
+            if(m_licenseControls.Count <= 0)
+            {
+                m_licenseControls.Add(this.label3);
+                m_licenseControls.Add(this.textBox3);
+                m_licenseControls.Add(this.button3);
+                m_licenseControls.Add(this.label6);
+            }
+        }
+
+        void DoHideWindow()
+        {
+            if (button1.InvokeRequired)
+            {
+                button1.Invoke(new MethodInvoker(delegate
+                {
+                    this.Hide();
+                }));
+            }
+        }
+
+        void DoCloseWindow()
+        {
+            Application.ExitThread();
+            //if (button1.InvokeRequired)
+            //{
+            //    button1.Invoke(new MethodInvoker(delegate
+            //    {
+            //        this.Close();
+            //    }));
+            //}
+        }
 
 
-        //protected override void OnActivated(EventArgs e)
-        //{
-        //    this.Hide();
-        //}
+        protected override void OnActivated(EventArgs e)
+        {
+            this.CenterToScreen();
+        }
 
         //void TickToHide(object source, System.Timers.ElapsedEventArgs e)
         //{
@@ -62,65 +101,118 @@ namespace WindowsFormsApp2
         //    Console.WriteLine("onclosed ....");
         //}
 
-        //protected override void OnClosing(CancelEventArgs e)
-        //{
-        //    Console.WriteLine("onclosing ....");
-        //    UnityService.Instance.OnClientClose();
-
-        //    while(!UnityService.Instance.CloseMsgSended)
-        //    {
-        //        Thread.Sleep(50);
-        //    }
-        //}
-
-        private void label1_Click(object sender, EventArgs e)
+        protected override void OnClosing(CancelEventArgs e)
         {
-
-        }
-
-        private void openFileDialog1_FileOk(object sender, CancelEventArgs e)
-        {
-            m_licensePath = this.openFileDialog1.FileName;
-            this.textBox3.Text = m_licensePath;
-            Console.WriteLine(m_licensePath);
-        }
-
-        private void button2_Click(object sender, EventArgs e)
-        {
-            this.openFileDialog1.ShowDialog();
+            Console.WriteLine("onclosing ....");
+            //UnityService.Instance.OnClientClose();
+            UnityService.Instance.DisconnectPipe();
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(m_licensePath))
-                return;
+            m_licenseKey = this.textBox3.Text;
 
-            if (!File.Exists(m_licensePath))
+            if (string.IsNullOrEmpty(m_licenseKey))
+            {
+                ShowTip("请输入激活码");
                 return;
+            }
 
-            if (!m_licensePath.EndsWith(".ulf"))
-                return;
+            UnityService.Instance.CheckLicense(m_licenseKey);
+        }
 
-            UnityService.Instance.CheckLicense(m_licensePath);
+        void ShowTip(string tip)
+        {
+            this.label4.Text = tip;
+            m_tipTickCount = 3;
+        }
+
+        void OnTimerTick(object o, EventArgs e)
+        {
+            if(m_tipTickCount > 0)
+            {
+                m_tipTickCount--;
+            }
+            else if(this.label4.Text.Length > 0)
+            {
+                this.label4.Text = "";
+            }
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            this.timer1.Tick += this.OnTimerTick;
+            this.timer1.Interval = 1000;
+            this.timer1.Start();
 
+            UnityService.WinHandle = this.Handle;
+            UnityService.Instance.Awake();
+            UnityService.Instance.RigisterHideEvent(this.DoHideWindow);
+            UnityService.Instance.RigisterCloseEvent(this.DoCloseWindow);
+            UnityService.Instance.RigisterLoginEvent(this.OnGotLoginResult);
         }
+
+        void OnGotLoginResult()
+        {
+            if (button1.InvokeRequired)
+            {
+                button1.Invoke(new MethodInvoker(delegate
+                {
+                    RefreshWindow();
+                }));
+            }
+        }
+
+        void RefreshWindow()
+        {
+            bool loginVisible = true;
+            bool licenseVisible = false;
+            switch (UnityService.Instance.CurrentState)
+            {
+                case UnityState.kLoggedOut:
+                    {
+                        loginVisible = true;
+                        licenseVisible = false;
+                    }
+                    break;
+                case UnityState.kLoggedInUnActivated:
+                    {
+                        loginVisible = false;
+                        licenseVisible = true;
+                    }
+                    break;
+                case UnityState.kLoggedInActivated:
+                    {
+                        Console.WriteLine("Going to hide window ");
+                        this.DoCloseWindow();
+                        return;
+                    }
+            }
+
+            foreach(var c in m_loginControls)
+            {
+                c.Visible = loginVisible;
+            }
+
+            foreach(var c in m_licenseControls)
+            {
+                c.Visible = licenseVisible;
+            }
+
+            if(UnityService.Instance.LastErrorMessage.Length > 0)
+            {
+                string tip = UnityService.Instance.LastErrorMessage;
+                ShowTip(tip);
+            }
+        }
+
 
         private void button1_Click(object sender, EventArgs e)
         {
-            //this.Hide();
-            UnityService.Instance.m_hideWindow = true;
-        }
+            string username = this.textBox1.Text;
+            string password = this.textBox2.Text;
 
-        private void button4_Click(object sender, EventArgs e)
-        {
-            Console.WriteLine("clicked to return license ....");
-            Console.WriteLine(UnityService.Instance.Connected);
-
-            UnityService.Instance.ReturnLicense();
+            UnityService.Instance.DoUnityLogin(username, password);
         }
 
     }

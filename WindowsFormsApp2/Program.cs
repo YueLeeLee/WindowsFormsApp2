@@ -31,7 +31,7 @@ namespace WindowsFormsApp2
         [STAThread]
         static void Main()
         {
-            UnityService.Instance.Awake();
+           // UnityService.Instance.Awake();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 

@@ -10,7 +10,14 @@ namespace WindowsFormsApp2
     class UnityMessage
     {
         public string type { get; set; }
-        public string data { get; set; }
+        public object data { get; set; }
         public long handle { get; set; }
+    }
+
+    [Serializable]
+    class LoginInfo
+    {
+        public string userName { get; set; }
+        public string passWord { get; set; }
     }
 }
